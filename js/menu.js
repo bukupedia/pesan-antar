@@ -147,5 +147,9 @@ window.APP_CONFIG = {
   // Business/brand name used across the UI.
   brandName: "Pesan Antar",
   // Short tagline shown under the brand.
-  tagline: "Makan enak, diantar cepat ke pintu rumah."
+  tagline: "Makan enak, diantar cepat ke pintu rumah.",
+  // Opening hours (24h, user's local time). Store is open when
+  // openHour <= currentHour < closeHour.
+  openHour: 8,
+  closeHour: 21
 };

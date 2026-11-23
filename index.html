@@ -34,8 +34,14 @@
   <!-- Navbar -->
   <nav class="navbar pa-navbar sticky-top">
     <div class="container">
-      <a class="navbar-brand brand-text mb-0 h1" href="#">
-        <i class="fa-solid fa-utensils"></i><span data-brand>Pesan Antar</span>
+      <a class="navbar-brand brand-text mb-0 h1 d-flex align-items-center gap-2" href="#">
+        <i class="fa-solid fa-utensils"></i>
+        <span data-brand>Pesan Antar</span>
+        <span id="store-status" class="pa-status pa-status-unknown" role="status"
+              aria-live="polite" title="Status toko">
+          <span class="pa-status-dot"></span>
+          <span class="pa-status-label">—</span>
+        </span>
       </a>
       <button class="pa-cart-btn" type="button"
               data-bs-toggle="offcanvas" data-bs-target="#cart-canvas" aria-controls="cart-canvas">
@@ -137,10 +143,37 @@
           <button id="wa-btn" type="submit" class="pa-wa-btn">
             <i class="fa-brands fa-whatsapp fs-5"></i> Pesan via WhatsApp
           </button>
+          <button id="copy-btn" type="button" class="pa-copy-btn mt-2">
+            <i class="fa-regular fa-copy"></i>
+            <span class="pa-copy-label">Salin detail pesanan</span>
+          </button>
           <p class="text-center text-muted small mt-2 mb-0">
-            Pesanan akan dikirim ke WhatsApp penjual.
+            WhatsApp tidak terbuka? Salin pesanan lalu tempel ke chat penjual.
           </p>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product details modal -->
+  <div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detailTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content pa-detail-modal">
+        <div class="pa-detail-img" id="detail-img"></div>
+        <button type="button" class="pa-detail-close" data-bs-dismiss="modal" aria-label="Tutup">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="modal-body">
+          <span class="pa-card-cat pa-detail-cat" id="detail-cat"></span>
+          <h4 class="pa-detail-name" id="detailTitle"></h4>
+          <p class="pa-detail-desc" id="detail-desc"></p>
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="pa-price fs-5" id="detail-price"></span>
+            <button type="button" class="pa-add-btn" id="detail-add">
+              <i class="fa-solid fa-plus"></i> Tambah ke keranjang
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

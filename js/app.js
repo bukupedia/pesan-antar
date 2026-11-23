@@ -31,6 +31,7 @@
   const yearEl = document.getElementById("year");
   const brandEls = document.querySelectorAll("[data-brand]");
   const taglineEl = document.getElementById("tagline");
+  const statusEl = document.getElementById("store-status");
 
   // --- Utilities ---
   const formatIDR = (n) =>
@@ -75,8 +76,33 @@
   function renderBrand() {
     brandEls.forEach((el) => (el.textContent = cfg.brandName || "Pesan Antar"));
     if (taglineEl) taglineEl.textContent = cfg.tagline || "";
-    document.title = (cfg.brandName || "Pesan Antar") + " — Pesan Makanan Online";
+    document.title = (cfg.brandName || "Pesan Antar") + " \u2014 Pesan Makanan Online";
     if (yearEl) yearEl.textContent = new Date().getFullYear();
+  }
+
+  // Store-open check: `openHour <= now < closeHour`. Supports overnight
+  // windows too (e.g. 18 → 2) by comparing wrap-around.
+  function isStoreOpen(date = new Date()) {
+    const open = cfg.openHour ?? 8;
+    const close = cfg.closeHour ?? 21;
+    const h = date.getHours() + date.getMinutes() / 60;
+    return open <= close ? h >= open && h < close : h >= open || h < close;
+  }
+
+  function renderStoreStatus() {
+    if (!statusEl) return;
+    const open = cfg.openHour ?? 8;
+    const close = cfg.closeHour ?? 21;
+    const fmt = (h) => String(h).padStart(2, "0") + ":00";
+    const hours = `${fmt(open)}\u2013${fmt(close)}`;
+    const isOpen = isStoreOpen();
+
+    statusEl.classList.remove("pa-status-open", "pa-status-closed", "pa-status-unknown");
+    statusEl.classList.add(isOpen ? "pa-status-open" : "pa-status-closed");
+    statusEl.querySelector(".pa-status-label").textContent = isOpen ? "Buka" : "Tutup";
+    statusEl.title = isOpen
+      ? `Toko buka \u2022 ${hours}`
+      : `Toko tutup \u2022 Jam buka ${hours}`;
   }
 
   function renderTabs() {
@@ -135,6 +161,21 @@
     grid.querySelectorAll("[data-dec]").forEach((btn) => {
       btn.addEventListener("click", () => changeQty(btn.dataset.dec, -1));
     });
+    grid.querySelectorAll("[data-details]").forEach((btn) => {
+      btn.addEventListener("click", () => openDetails(btn.dataset.details));
+    });
+
+    // After paint, hide the "Details" link on cards whose description fits
+    // in the 2-line clamp (no truncation).
+    requestAnimationFrame(() => {
+      grid.querySelectorAll(".pa-desc").forEach((p) => {
+        const truncated = p.scrollHeight - p.clientHeight > 1;
+        const link = p.nextElementSibling;
+        if (link && link.classList.contains("pa-details-link")) {
+          link.hidden = !truncated;
+        }
+      });
+    });
   }
 
   function renderCard(it) {
@@ -158,6 +199,9 @@
           <div class="pa-card-body">
             <h5>${it.name}</h5>
             <p class="pa-desc">${it.description}</p>
+            <button type="button" class="pa-details-link" data-details="${it.id}" hidden>
+              Detail <i class="fa-solid fa-chevron-right"></i>
+            </button>
             <div class="pa-card-footer">
               <span class="pa-price">${formatIDR(it.price)}</span>
               ${controls}
@@ -165,6 +209,25 @@
           </div>
         </article>
       </div>`;
+  }
+
+  // --- Details modal ---
+  let detailModalInst = null;
+  function openDetails(id) {
+    const it = byId(id);
+    if (!it) return;
+    document.getElementById("detail-img").style.backgroundImage = `url('${it.image}')`;
+    document.getElementById("detail-cat").textContent = it.category;
+    document.getElementById("detailTitle").textContent = it.name;
+    document.getElementById("detail-desc").textContent = it.description;
+    document.getElementById("detail-price").textContent = formatIDR(it.price);
+    const addBtn = document.getElementById("detail-add");
+    addBtn.onclick = () => {
+      addToCart(it.id);
+      detailModalInst && detailModalInst.hide();
+    };
+    detailModalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById("detail-modal"));
+    detailModalInst.show();
   }
 
   // --- Cart actions ---
@@ -186,6 +249,11 @@
 
   function removeFromCart(id) {
     delete cart[id];
+    afterCartChange();
+  }
+
+  function clearCart() {
+    cart = {};
     afterCartChange();
   }
 
@@ -227,8 +295,11 @@
   }
 
   function refreshWaButton() {
+    const empty = totalCount() === 0;
     const waBtn = document.getElementById("wa-btn");
-    if (waBtn) waBtn.disabled = totalCount() === 0;
+    const copyBtn = document.getElementById("copy-btn");
+    if (waBtn) waBtn.disabled = empty;
+    if (copyBtn) copyBtn.disabled = empty;
   }
 
   // --- Cart panel (offcanvas) ---
@@ -347,14 +418,42 @@
     return lines.join("\n");
   }
 
+  function readCheckoutForm() {
+    return {
+      name: document.getElementById("c-name").value.trim(),
+      phone: document.getElementById("c-phone").value.trim(),
+      address: document.getElementById("c-address").value.trim(),
+      payment: document.getElementById("c-payment").value,
+    };
+  }
+
+  // Try the async Clipboard API first; fall back to a hidden textarea +
+  // `execCommand("copy")` for browsers that block it (e.g. non-HTTPS pages).
+  async function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch { /* fall through */ }
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0;";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
   function initCheckoutForm() {
     const form = document.getElementById("checkout-form");
-    const inputs = {
-      name: document.getElementById("c-name"),
-      phone: document.getElementById("c-phone"),
-      address: document.getElementById("c-address"),
-      payment: document.getElementById("c-payment"),
-    };
+    const copyBtn = document.getElementById("copy-btn");
+    const copyLabel = copyBtn.querySelector(".pa-copy-label");
+    const originalCopyLabel = copyLabel.textContent;
+    const cartCanvasEl = document.getElementById("cart-canvas");
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -369,21 +468,43 @@
         return;
       }
 
-      const data = {
-        name: inputs.name.value.trim(),
-        phone: inputs.phone.value.trim(),
-        address: inputs.address.value.trim(),
-        payment: inputs.payment.value,
-      };
-
-      const msg = buildWhatsAppMessage(data);
+      const msg = buildWhatsAppMessage(readCheckoutForm());
       const url = `https://wa.me/${cfg.whatsappNumber}?text=${encodeURIComponent(msg)}`;
       window.open(url, "_blank", "noopener");
+
+      // Order has been handed off to WhatsApp — reset cart + form so the
+      // customer gets a clean state when they return to the browser tab.
+      form.reset();
+      form.classList.remove("was-validated");
+      clearCart();
+      bootstrap.Offcanvas.getOrCreateInstance(cartCanvasEl).hide();
+      showToast("Pesanan terkirim! Keranjang dikosongkan.");
     });
 
-    // Enable WA button only when cart has items (afterCartChange calls refreshWaButton too).
-    document.getElementById("cart-canvas")
-      .addEventListener("shown.bs.offcanvas", refreshWaButton);
+    copyBtn.addEventListener("click", async () => {
+      if (totalCount() === 0) {
+        showToast("Keranjang masih kosong");
+        return;
+      }
+      // Form filled is optional for copying — if valid, include it in the
+      // message so the seller still gets the customer info.
+      const msg = buildWhatsAppMessage(readCheckoutForm());
+      const ok = await copyTextToClipboard(msg);
+      if (ok) {
+        copyBtn.classList.add("pa-copy-done");
+        copyLabel.textContent = "Tersalin \u2713";
+        showToast("Detail pesanan disalin");
+        setTimeout(() => {
+          copyBtn.classList.remove("pa-copy-done");
+          copyLabel.textContent = originalCopyLabel;
+        }, 2500);
+      } else {
+        showToast("Gagal menyalin, coba lagi");
+      }
+    });
+
+    // Enable action buttons only when the cart has items.
+    cartCanvasEl.addEventListener("shown.bs.offcanvas", refreshWaButton);
     refreshWaButton();
   }
 
@@ -405,6 +526,7 @@
   // --- Boot ---
   document.addEventListener("DOMContentLoaded", () => {
     renderBrand();
+    renderStoreStatus();
     renderTabs();
     renderMenu();
     renderCart();
@@ -412,5 +534,9 @@
     renderCartBadge();
     initEvents();
     initCheckoutForm();
+
+    // Re-check the open/closed status every minute so it flips exactly
+    // on the opening/closing hour without needing a reload.
+    setInterval(renderStoreStatus, 60 * 1000);
   });
 })();
