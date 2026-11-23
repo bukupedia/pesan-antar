@@ -101,9 +101,18 @@ h1, h2, h3, h4, h5, .brand-text {
   0%, 100% { box-shadow: 0 0 0 0 rgba(23, 138, 74, .6); }
   50%      { box-shadow: 0 0 0 6px rgba(23, 138, 74, 0); }
 }
-@media (max-width: 420px) {
-  .pa-status-label { display: none; }
-  .pa-status { padding: .2rem .35rem; }
+/* Keep the Open/Closed label visible on small devices too — just tighten
+   the pill, the brand icon, and the cart button so everything fits. */
+@media (max-width: 480px) {
+  .pa-status {
+    font-size: .65rem;
+    padding: .18rem .45rem;
+    gap: .3rem;
+  }
+  .pa-status .pa-status-dot { width: 7px; height: 7px; }
+  .pa-navbar .brand-text { font-size: 1.1rem; }
+  .pa-navbar .brand-text .fa-utensils { margin-right: 0; }
+  .pa-cart-btn { padding: .45rem .7rem; }
 }
 
 /* --- Hero --- */
